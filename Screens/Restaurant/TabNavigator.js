@@ -5,6 +5,7 @@ import CheckoutScreen from './CheckoutScreen';
 import ProfileScreen from './ProfileScreen';
 import OrdersScreen from './OrdersScreen'; // Import OrdersScreen
 import { Image } from 'react-native';
+import BigOrdersScreen from "./BigOrdersScreen"
 
 // Import your custom icons
 import HomeIcon from '../../assets/Home-icon.png';
@@ -56,7 +57,7 @@ const TabNavigator = () => {
       />
       <Tab.Screen
         name="Orders"
-        component={OrdersScreen}
+        component={BigOrdersScreen}
         options={{ headerShown: false }}
       />
       <Tab.Screen

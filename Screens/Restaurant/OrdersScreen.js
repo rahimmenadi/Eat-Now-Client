@@ -1,34 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, FlatList, SafeAreaView } from 'react-native';
 
-const orders = [
-  {
-    id: '1',
-    name: 'Pizza with ham and vegetables',
-    calories: '350 Calories',
-    price: 9.99,
-    status: 'Delivered',
-    image: 'https://freepngimg.com/thumb/pizza/46-pizza-png-image.png', // Placeholder image URL
-  },
-  {
-    id: '2',
-    name: 'Grilled beef steak and potatoes',
-    calories: '450 Calories',
-    price: 24.99,
-    status: 'In Transit',
-    image: 'https://freepngimg.com/thumb/burger/5-2-burger-png.png', // Placeholder image URL
-  },
-  {
-    id: '3',
-    name: 'Cheeseburger with fries',
-    calories: '250 Calories',
-    price: 12.80,
-    status: 'Preparing',
-    image: 'https://freepngimg.com/thumb/burger/5-2-burger-png.png', // Placeholder image URL
-  },
-];
+const OrdersScreen = ({ route }) => {
+  const { orders, name } = route.params || {};
 
-const OrdersScreen = () => {
   const renderItem = ({ item }) => (
     <View style={styles.itemContainer}>
       <Image source={{ uri: item.image }} style={styles.itemImage} />
@@ -45,7 +20,7 @@ const OrdersScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>My Orders</Text>
+      <Text style={styles.header}>{name}</Text>
       <FlatList
         data={orders}
         renderItem={renderItem}
@@ -78,7 +53,7 @@ const styles = StyleSheet.create({
   itemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between', // Add this line
+    justifyContent: 'space-between',
     backgroundColor: '#fff',
     marginVertical: 5,
     padding: 10,
@@ -113,7 +88,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   orderStatus: {
-    marginLeft: 'auto', // Ensure the status stays on the right
+    marginLeft: 'auto',
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 5,
@@ -124,13 +99,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   statusDelivered: {
-    backgroundColor: '#32CD32', // Green
+    backgroundColor: '#32CD32',
   },
   statusInTransit: {
-    backgroundColor: '#1E90FF', // Blue
+    backgroundColor: '#1E90FF',
   },
   statusPreparing: {
-    backgroundColor: '#FFA500', // Orange
+    backgroundColor: '#FFA500',
   },
 });
 

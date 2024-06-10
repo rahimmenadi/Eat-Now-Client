@@ -17,7 +17,7 @@ const OrderConfirmation = ({ navigation }) => {
           <Image source={require('../../assets/Frame 1932.png')} style={styles.emojiImage} />
           <Text style={styles.modalText}>Congratulations</Text>
           <Text style={styles.modalSubText}>Your order has been confirmed successfully</Text>
-          <TouchableOpacity style={styles.trackButton} onPress={() => navigation.navigate('TrackOrder')}>
+          <TouchableOpacity style={styles.trackButton} onPress={() => navigation.navigate('TabNavigator', { screen: 'Orders' })}>
             <Text style={styles.trackButtonText}>Track your order</Text>
           </TouchableOpacity>
         </View>

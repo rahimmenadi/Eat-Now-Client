@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, Animated } from 'react-native';
 
 const OnboardingScreen = ({ navigation }) => {
@@ -6,7 +6,7 @@ const OnboardingScreen = ({ navigation }) => {
   const imageX = React.useRef(new Animated.Value(0)).current;
   const textOpacity = React.useRef(new Animated.Value(1)).current;
   const textTranslateY = React.useRef(new Animated.Value(0)).current;
-
+  
   const handleNext = () => {
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);

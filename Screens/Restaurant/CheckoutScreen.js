@@ -1,56 +1,191 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, FlatList, SafeAreaView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, FlatList, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Icon from 'react-native-vector-icons/Ionicons';
+import axios from 'axios';
+import { useFocusEffect } from '@react-navigation/native';
+import env from './.env';
+import Toast from 'react-native-toast-message'; // Import Toast from the library
+const ipAddress = env.IP_ADDRESS;
+
+const CheckoutScreen = ({ navigation }) => {
+  const [basketItems, setBasketItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [totalPriceCart, setTotalPriceCart] = useState(0);
+  const [address, setAddress] = useState('');
+  const [isAddressSaved, setIsAddressSaved] = useState(false);
+  const [errorFetchingCart, setErrorFetchingCart] = useState(false); // New state variable for error fetching cart
 
 
-const basketItems = [
-  {
-    id: '1',
-    name: 'Pizza with ham and vegetables',
-    calories: '350 Calories',
-    price: 9.99,
-    quantity: 1,
-    image: 'https://freepngimg.com/thumb/pizza/46-pizza-png-image.png', // Placeholder image URL
-  },
-  {
-    id: '2',
-    name: 'Grilled beef steak and potatoes',
-    calories: '450 Calories',
-    price: 24.99,
-    quantity: 1,
-    image: 'https://freepngimg.com/thumb/burger/5-2-burger-png.png', // Placeholder image URL
-  },
-  {
-    id: '3',
-    name: 'Cheeseburger with fries',
-    calories: '250 Calories',
-    price: 12.80,
-    quantity: 1,
-    image: 'https://freepngimg.com/thumb/burger/5-2-burger-png.png', // Placeholder image URL
-  },
-];
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchCart = async () => {
+        try {
+          const token = await AsyncStorage.getItem('token');
+          const response = await axios.get(`http://${ipAddress}:7777/order-service/api/carts`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          setBasketItems(response.data.products);
+          setTotalPriceCart(response.data.totalPriceCart);
+          setIsLoading(false);
+        } catch (error) {
+          console.error('Error fetching cart:', error);
+          setErrorFetchingCart(true);
+          setIsLoading(false);
+        }
+      };
 
-const CheckoutScreen = ({navigation}) => {
+      const checkLoginStatus = async () => {
+        const token = await AsyncStorage.getItem('token');
+        if (token) {
+          setIsLoggedIn(true);
+        }
+      };
+      
+      fetchCart();
+      checkLoginStatus();
+
+      return () => {
+        // Clean up function if needed
+      };
+    }, [])
+  );
+
+  const handleCheckout = async () => {
+    // Perform address validation
+    if (!address.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Please enter your address.',
+        position: 'bottom',
+        visibilityTime: 3000,
+        autoHide: true,
+      });
+    } else {
+      await AsyncStorage.setItem('address',address)
+      // Save the total price to AsyncStorage
+      await AsyncStorage.setItem('totalPrice', totalPriceCart.toString());
+      navigation.navigate('OrderDetailsScreen');
+    }
+  };
+
+  const deleteItem = async (itemId) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await axios.delete(`http://${ipAddress}:7777/order-service/api/carts/products/${itemId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      // Remove item from local state after successful deletion
+      const updatedItems = basketItems.filter(item => item.id !== itemId);
+      setBasketItems(updatedItems);
+      // Optionally, update the total price cart state if needed
+      const newTotalPrice = updatedItems.reduce((total, item) => total + item.totalPrice, 0);
+      setTotalPriceCart(newTotalPrice);
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      Alert.alert('Error', 'Failed to delete the item.');
+    }
+  };
+
+  const confirmDelete = (itemId) => {
+    Alert.alert(
+      'Delete Item',
+      'Are you sure you want to delete this item?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'OK', onPress: () => deleteItem(itemId) },
+      ],
+      { cancelable: false }
+    );
+  };
+
+  const updateItemQuantity = async (itemId, newQuantity) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await axios.put(`http://${ipAddress}:7777/order-service/api/carts/products/${itemId}`, {
+        quantity: newQuantity
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      // Update local state after successful update
+      const updatedItems = basketItems.map(item => 
+        item.id === itemId ? { ...item, quantity: newQuantity, totalPrice: item.price * newQuantity } : item
+      );
+      setBasketItems(updatedItems);
+      // Update the total price cart state if needed
+      const newTotalPrice = updatedItems.reduce((total, item) => total + item.totalPrice, 0);
+      setTotalPriceCart(newTotalPrice);
+    } catch (error) {
+      console.error('Error updating quantity:', error);
+      Alert.alert('Error', 'Failed to update the quantity.');
+    }
+  };
 
   const renderItem = ({ item }) => (
     <View style={styles.itemContainer}>
-      <Image source={{ uri: item.image }} style={styles.itemImage} />
+      <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
       <View style={styles.itemDetails}>
         <Text style={styles.itemName}>{item.name}</Text>
-        <Text style={styles.itemCalories}>{item.calories} 🔥</Text>
-        <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
+        <Text style={styles.itemCalories}>{item.quantity} x ${item.price} = ${item.totalPrice}</Text>
       </View>
-      <View style={styles.itemQuantity}>
-        <TouchableOpacity style={styles.quantityButton}>
-          <Text style={styles.quantityText}>-</Text>
-        </TouchableOpacity>
-        <Text style={styles.quantityValue}>{item.quantity}</Text>
-        <TouchableOpacity style={styles.quantityButton}>
-          <Text style={styles.quantityText}>+</Text>
+      <View style={styles.actionsContainer}>
+        <View style={styles.itemQuantity}>
+          <TouchableOpacity 
+            style={styles.quantityButton}          onPress={() => updateItemQuantity(item.id, item.quantity - 1)} 
+            disabled={item.quantity <= 1}
+          >
+            <Icon name="remove" size={16} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.quantityValue}>{item.quantity}</Text>
+          <TouchableOpacity 
+            style={styles.quantityButton} 
+            onPress={() => updateItemQuantity(item.id, item.quantity + 1)}
+          >
+            <Icon name="add" size={16} color="#fff" />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={styles.deleteIcon} onPress={() => confirmDelete(item.id)}>
+          <Icon name="trash" size={24} color="#ff6200" />
         </TouchableOpacity>
       </View>
     </View>
   );
+  
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#ff6200" />
+      </View>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <View style={styles.container}>
+        <Icon name="person-circle-outline" size={50} color="#ff6200" />
+        <Text>Please log in to view your cart.</Text>
+        {/* You can also render a login button here */}
+      </View>
+    );
+  }
+
+  if (basketItems.length === 0) {
+    return (
+      <View style={styles.emptyCartContainer}>
+        <Icon name="cart-outline" size={100} color="#ff6200" />
+        <Text style={styles.emptyCartText}>Your cart is empty</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -62,17 +197,20 @@ const CheckoutScreen = ({navigation}) => {
         contentContainerStyle={styles.list}
         style={styles.listContainer}
       />
-      <View style={styles.bottomContainer}>
-        <View style={styles.promoContainer}>
-          <TextInput style={styles.promoInput} placeholder="Promo Code" />
-          <TouchableOpacity style={styles.promoButton}>
-            <Text style={styles.promoButtonText}>Apply</Text>
-          </TouchableOpacity>
+    <View style={styles.bottomContainer}>
+        <View style={styles.addressContainer}>
+        <Icon name="location-outline" size={24} color="#ff6200" style={styles.addressIcon} />
+          <TextInput 
+            style={styles.addressInput} 
+            placeholder="Enter your address" 
+            value={address} 
+            onChangeText={setAddress} />
+          
         </View>
         <View style={styles.summaryContainer}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryText}>Subtotal</Text>
-            <Text style={styles.summaryText}>$47.78</Text>
+            <Text style={styles.summaryText}>${totalPriceCart}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryText}>Delivery</Text>
@@ -80,15 +218,13 @@ const CheckoutScreen = ({navigation}) => {
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.totalText}>Total</Text>
-            <Text style={styles.totalText}>$51.78</Text>
+            <Text style={styles.totalText}>${totalPriceCart + 4}</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.checkoutButton}
-        onPress={() => navigation.navigate('ShippingAddressScreen')}>
+        <TouchableOpacity style={styles.checkoutButton} onPress={handleCheckout}>
           <Text style={styles.checkoutButtonText}>Checkout</Text>
         </TouchableOpacity>
       </View>
-      
     </SafeAreaView>
   );
 };
@@ -144,8 +280,9 @@ const styles = StyleSheet.create({
     color: '#ff6200',
     marginTop: 5,
   },
-  itemPrice: {
-    marginTop: 5,
+  actionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   itemQuantity: {
     flexDirection: 'row',
@@ -167,16 +304,19 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     fontSize: 16,
   },
+  deleteIcon: {
+    marginLeft: 10,
+  },
   bottomContainer: {
     paddingHorizontal: 10,
   },
-  promoContainer: {
+  addressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
     marginVertical: 10,
-    padding: 10,
     borderRadius: 10,
+    paddingHorizontal: 10,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -186,28 +326,19 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  promoInput: {
+  addressInput: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
-  },
-  promoButton: {
-    marginLeft: 10,
     paddingVertical: 10,
-    paddingHorizontal: 20,
-    backgroundColor: '#ff6200',
-    borderRadius: 5,
+    paddingLeft: 10,
   },
-  promoButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  addressIcon: {
+    margin: 5,
   },
   summaryContainer: {
     backgroundColor: '#fff',
     padding: 10,
     borderRadius: 10,
+    marginBottom: 10,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -220,7 +351,7 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 5,
+    marginBottom: 10,
   },
   summaryText: {
     fontSize: 16,
@@ -231,9 +362,9 @@ const styles = StyleSheet.create({
   },
   checkoutButton: {
     backgroundColor: '#ff6200',
-    marginVertical: 10,
-    padding: 15,
+    paddingVertical: 15,
     borderRadius: 10,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   checkoutButtonText: {
@@ -241,19 +372,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  navBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#fff',
-    paddingVertical: 10,
-  },
-  navButton: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  navButtonText: {
+  emptyCartContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyCartText: {
+    fontSize: 20,
     color: '#ff6200',
-    fontWeight: 'bold',
+    marginTop: 10,
   },
 });
 
 export default CheckoutScreen;
+

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet,Switch  } from 'react-native';
+import React, { useState ,useEffect} from 'react';
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet,Switch,Alert, Platform, PermissionsAndroid,  } from 'react-native';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { useNavigation } from '@react-navigation/native';
@@ -7,6 +7,10 @@ import PasswordEye from 'react-native-password-eye';
 import axios from 'axios';
 // import CountryPicker from 'react-native-country-picker-modal';
 import FlashMessage, { showMessage } from 'react-native-flash-message';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+
+
 
 import HomeScreen from './HomeScreen';
 
@@ -15,48 +19,33 @@ import { createStackNavigator } from '@react-navigation/stack';
 
 
 import { NavigationContainer } from '@react-navigation/native';
+import env from './.env'; // Adjust the path if necessary
+
+const ipAddress = env.IP_ADDRESS;
 
 // Function to sign up
-const signUp = async (name, email, password,countryCode, phoneNumber) => {
+const signUp = async (name, email, password, phoneNumber) => {
   try {
-    const fullPhoneNumber = `${'+213'}${phoneNumber}`;
-    const role='client' // Static phone number
-    const response = await axios.post('https://easy-ray-bandanna.cyclic.app/api/v1/auth/signup', {
+    const fullPhoneNumber = `+213${phoneNumber}`; // Include static country code
+    const role = 'client'; // Static role
+    const response = await axios.post(`http://${ipAddress}:7777/user-service/api/v1/signup/`, { // Use local IP
       name,
       email,
       password,
       phoneNumber: fullPhoneNumber,
-      role, // Include static phone number in the request
-
+      role, // Include static role in the request
     });
     // Handle successful sign-up (e.g., navigate to the next screen)
     console.log('Sign-up successful:', response.data);
     return response.data; // Return response data if needed
-
   } catch (error) {
     // Handle sign-up error (e.g., display error message)
-    console.error('Sign-up error:', error.response.data);
+    console.error('Sign-up error:', error.response?.data || error.message);
     throw error; // Throw error for error handling in the component
   }
 };
 
-// Function to sign in
-const signIn = async (email, password) => {
-  try {
-    const response = await axios.post('https://easy-ray-bandanna.cyclic.app/api/v1/auth/login/client', {
-      email,
-      password,
-    });
-    // Handle successful sign-in (e.g., store authentication token, navigate to the next screen)
-    console.log('Sign-in successful:', response.data);
-    return response.data; // Return response data if needed
-  } catch (error) {
-    // Handle sign-in error (e.g., display error message)
-    console.error('Sign-in error:', error.response.data);
-    throw error; // Throw error for error handling in the component
-  }
-};
-
+//location
 
 // SignInScreen component
 const SignInScreen = () => {
@@ -65,31 +54,38 @@ const SignInScreen = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  useEffect(() => {
 
-   const handleSignIn = async () => {
+  }, []);
+
+  const handleSignIn = async () => {
     try {
-     
-
-  
+      const response = await axios.post(`http://${ipAddress}:7777/user-service/api/v1/login/client`, {
+        email,
+        password,
+      });
+      const userId = response.data.data._id; // Adjust according to your response
+      const token = response.data.token;
+      await AsyncStorage.setItem('userId', userId); // Store the user ID
+      await AsyncStorage.setItem('token', token);
       showMessage({
         message: 'Success',
         description: 'Logged in successfully',
         type: 'success',
       });
-      
-      navigation.navigate('WelcomeScreen');
+      setTimeout(() => {
+        navigation.navigate('WelcomeScreen');
+      }, 1599); // 2000 milliseconds = 2 seconds
     } catch (error) {
-      // Handle sign-in error (e.g., display error message)
       showMessage({
         message: 'Error',
         description: 'Failed to log in. Please try again.',
         type: 'danger',
       });
       console.error('Error signing in:', error);
-      // Show error message
-   
     }
   };
+
 
   // Function to validate email format
   const validateEmail = (email) => {
@@ -172,29 +168,27 @@ const SignInScreen = () => {
   );
 };
 
+
 // SignUpScreen component
 const SignUpScreen = ({ setIndex }) => {
   const navigation = useNavigation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [countryCode, setCountryCode] = useState('DZ'); // Default country code (change as needed)
-
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState(''); // Add phoneNumber state
-  
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+
   const handleSignUp = async () => {
     try {
-      await signUp(name, email, password, countryCode, phoneNumber);
+      await signUp(name, email, password, phoneNumber);
       showMessage({
         message: 'Success',
         description: 'Sign Up successful',
         type: 'success',
       });
       setIndex(0);
-   
     } catch (error) {
       showMessage({
         message: 'Error',
@@ -204,36 +198,44 @@ const SignUpScreen = ({ setIndex }) => {
       console.error('Error signing up:', error);
     }
   };
+
+  // Function to validate email format
   const validateEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
   };
-const handleFormSubmit=()=> {
-  // Function to validate email format
-  const errors = {};
-  if (!name) {
-    errors.name = 'Name is required';
-  }
-  if (!email) {
-    errors.email = 'Email is required';
-  } else if (!validateEmail(email)) {
-    errors.email = 'Invalid email format';
-  }
-  if (!password) {
-    errors.password = 'Password is required';
-  }
-  if (!confirmPassword) {
-    errors.confirmPassword = 'Confirm password is required';
-  } else if (password !== confirmPassword) {
-    errors.confirmPassword = 'Passwords do not match';
-  }
-  // Set errors
-  setErrors(errors);
 
-  // If no errors, proceed with sign up
-  if (Object.keys(errors).length === 0) {
-    handleSignUp();
-  }
+  // Function to handle form validation and sign up
+  const handleFormSubmit = () => {
+    // Validate inputs
+    const errors = {};
+    if (!name) {
+      errors.name = 'Name is required';
+    }
+    if (!email) {
+      errors.email = 'Email is required';
+    } else if (!validateEmail(email)) {
+      errors.email = 'Invalid email format';
+    }
+    if (!password) {
+      errors.password = 'Password is required';
+    }
+    if (!confirmPassword) {
+      errors.confirmPassword = 'Confirm password is required';
+    } else if (password !== confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match';
+    }
+    if (!phoneNumber) {
+      errors.phoneNumber = 'Phone number is required';
+    }
+
+    // Set errors
+    setErrors(errors);
+
+    // If no errors, proceed with sign up
+    if (Object.keys(errors).length === 0) {
+      handleSignUp();
+    }
   };
   return (
     <View style={styles.container}>

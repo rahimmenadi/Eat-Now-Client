@@ -1,5 +1,4 @@
-import React from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native'; // Import useNavigation
 
 // Import your custom icons
@@ -10,12 +9,51 @@ import OffersIcon from '../../assets/offers-icon.png';
 import SettingsIcon from '../../assets/settings-icon.png';
 import JoinUsIcon from '../../assets//Join us.png';
 import ContactUsIcon from '../../assets/contact-icon.png';
+import axios from 'axios';
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import env from './.env'; // Adjust the path if necessary
+
+const ipAddress = env.IP_ADDRESS;
+
 
 const ProfileScreen = () => {
+  const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
   const navigation = useNavigation(); // Get navigation object
+
+  const signOut = async () => {
+    try {
+      await AsyncStorage.removeItem('token');
+      await AsyncStorage.removeItem('userId');
+      // Additional cleanup or tasks if needed
+      navigation.navigate('SignInSignUpScreen'); // Navigate to sign-in/sign-up screen after sign-out
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  useEffect(() => {
+    // Fetch user data
+    const fetchUserData = async () => {
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+          const response = await axios.get(`http://${ipAddress}:7777/user-service/api/v1/user/${userId}`);
+          setUserName(response.data.data.name); // Update state with the user's name
+          setUserEmail(response.data.data.email); // Update state with the user's email
+        }
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   return (
     <ScrollView style={styles.container}>
+      {/* Profile details */}
       <View style={styles.profileContainer}>
         <View style={styles.imageContainer}>
           <Image
@@ -23,23 +61,23 @@ const ProfileScreen = () => {
             style={styles.profileImage}
           />
         </View>
-        <Text style={styles.profileName}>Ilias Soltani</Text>
-        <Text style={styles.profileEmail}>xm7zl234@gmail.com</Text>
+        <Text style={styles.profileName}>{userName || 'Loading...'}</Text>
+        <Text style={styles.profileEmail}>{userEmail || 'Loading...'}</Text>
       </View>
+      
+      {/* Option list */}
       <View style={styles.optionList}>
         <OptionItem icon={WalletIcon} label="My Wallet" info="$200" />
-        <OptionItem icon={OrdersIcon} label="My Orders" info="2 orders"  onPress={() => navigation.navigate('Orders')} />
+        <OptionItem icon={OrdersIcon} label="My Orders" info="2 orders"  onPress={() => navigation.navigate('BigOrdersScreen')} />
         <OptionItem icon={WishlistIcon} label="My Wish List" info="8 meals" onPress={() => navigation.navigate('WishlistScreen')} />
-        <OptionItem
-          icon={OffersIcon}
-          label="Offers"
-         
-        />
+        <OptionItem icon={OffersIcon} label="Offers" />
         <OptionItem icon={SettingsIcon} label="Settings" />
         <OptionItem icon={JoinUsIcon} label="Join Us" />
         <OptionItem icon={ContactUsIcon} label="Contact Us" />
       </View>
-      <TouchableOpacity style={styles.signOutButton}>
+      
+      {/* Sign out button */}
+      <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
         <Text style={styles.signOutText}>Sign Out</Text>
       </TouchableOpacity>
     </ScrollView>
